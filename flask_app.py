@@ -3,7 +3,6 @@ from app import create_app, db
 from app.models import User, Item, Cart, Order
 import os
 import ssl
-from OpenSSL import crypto
 import sys
 
 app = create_app()
