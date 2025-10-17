@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Camera Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; }
+        #video {
+            width: 100%;
+            max-width: 500px;
+            background: #000;
+            margin: 20px 0;
+        }
+        .camera-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">Camera Test</h1>
+        
+        <div class="alert alert-info">
+            This page tests basic camera access on your device. Click "Start Camera" to begin.
+        </div>
+        
+        <div class="camera-container">
+            <video id="video" autoplay playsinline></video>
+        </div>
+        
+        <div class="mb-3">
+            <button id="startButton" class="btn btn-primary">Start Camera</button>
+            <button id="stopButton" class="btn btn-danger" disabled>Stop Camera</button>
+        </div>
+        
+        <div id="status" class="alert">
+            Camera not started
+        </div>
+        
+        <div id="permissionsInfo" class="alert alert-warning d-none">
+            <h5>Permission Denied</h5>
+            <p>To allow camera access:</p>
+            <ol>
+                <li>Tap the lock icon in your browser's address bar</li>
+                <li>Find "Camera" in the permissions list</li>
+                <li>Change it to "Allow"</li>
+                <li>Refresh this page</li>
+            </ol>
+            <p>If you don't see the permission prompt, check your browser settings to ensure the site has permission to use the camera.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('video');
+            const startButton = document.getElementById('startButton');
+            const stopButton = document.getElementById('stopButton');
+            const statusDiv = document.getElementById('status');
+            const permissionsInfo = document.getElementById('permissionsInfo');
+            let stream = null;
+            
+            // Check if browser supports mediaDevices
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                statusDiv.textContent = 'Your browser does not support camera access.';
+                statusDiv.className = 'alert alert-danger';
+                startButton.disabled = true;
+                return;
+            }
+            
+            // Start camera
+            async function startCamera() {
+                try {
+                    // Try to get the rear camera first
+                    let constraints = {
+                        video: {
+                            facingMode: 'environment', // Prefer rear camera
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    };
+                    
+                    // Try with environment camera first
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    } catch (err) {
+                        console.log('Could not access environment camera, trying user-facing...', err);
+                        // Try with user-facing camera if environment fails
+                        constraints.video.facingMode = 'user';
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    }
+                    
+                    // Set video source
+                    video.srcObject = stream;
+                    
+                    // Update UI
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                    statusDiv.textContent = 'Camera is active';
+                    statusDiv.className = 'alert alert-success';
+                    permissionsInfo.classList.add('d-none');
+                    
+                } catch (err) {
+                    console.error('Error accessing camera:', err);
+                    statusDiv.textContent = 'Error: ' + (err.message || 'Could not access camera');
+                    statusDiv.className = 'alert alert-danger';
+                    
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        permissionsInfo.classList.remove('d-none');
+                    }
+                }
+            }
+            
+            // Stop camera
+            function stopCamera() {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                    video.srcObject = null;
+                    
+                    // Update UI
+                    startButton.disabled = false;
+                    stopButton.disabled = true;
+                    statusDiv.textContent = 'Camera stopped';
+                    statusDiv.className = 'alert alert-info';
+                }
+            }
+            
+            // Event listeners
+            startButton.addEventListener('click', startCamera);
+            stopButton.addEventListener('click', stopCamera);
+            
+            // Try to start camera automatically
+            startCamera();
+        });
+    </script>
+</body>
+</html>

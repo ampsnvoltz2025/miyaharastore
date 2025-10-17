@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping Cart{% endblock %}
+
+{% block content %}
+{{ super() }}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">Your Shopping Cart</h2>
+            <div id="csrf-token" data-token="{{ csrf_token() }}" style="display: none;"></div>
+        {% if cart_items %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart_items %}
+                    <tr data-item-id="{{ item.item.id }}" data-max-quantity="{{ item.item.max_per_customer or 1000 }}">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if item.item.image_url %}
+                                <img src="{{ item.item.image_url }}" alt="{{ item.item.name }}" style="width: 50px; height: 50px; object-fit: cover;" class="me-3">
+                                {% endif %}
+                                <div>
+                                    <h6 class="mb-0">{{ item.item.name }}</h6>
+                                    <small class="text-muted">{{ item.item.description|truncate(50) }}</small>
+                                    {% if item.item.max_per_customer %}
+                                    <div class="text-warning small">Max {{ item.item.max_per_customer }} per customer</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ settings.format_price(item.item.price) }}</td>
+                        <td>
+                            <div class="input-group" style="width: 150px;">
+                                <button class="btn btn-outline-secondary btn-sm update-quantity" data-action="decrease" type="button">-</button>
+                                <input type="number" class="form-control form-control-sm text-center quantity-input" 
+                                       value="{{ item.quantity }}" min="1" 
+                                       max="{{ item.item.max_per_customer or 1000 }}" 
+                                       data-item-id="{{ item.item.id }}">
+                                <button class="btn btn-outline-secondary btn-sm update-quantity" data-action="increase" type="button">+</button>
+                            </div>
+                            <div class="invalid-feedback quantity-error" style="display: none;">
+                                Maximum quantity is {{ item.item.max_per_customer }}
+                            </div>
+                        </td>
+                        <td>{{ settings.format_price(item.item.price * item.quantity) }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger remove-item" data-item-id="{{ item.item.id }}">
+                                <i class="bi bi-trash"></i> Remove
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                        <td colspan="2"><strong>{{ settings.format_price(total) }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="d-flex justify-content-end">
+            <a href="{{ url_for('views.home') }}" class="btn btn-outline-secondary me-2">Continue Shopping</a>
+            <form action="{{ url_for('views.checkout') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary">Proceed to Checkout</button>
+            </form>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-cart-x" style="font-size: 4rem; color: #6c757d;"></i>
+            <h4 class="mt-3">Your cart is empty</h4>
+            <p class="text-muted">Looks like you haven't added any items to your cart yet.</p>
+            <a href="{{ url_for('views.home') }}" class="btn btn-primary">Continue Shopping</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Get CSRF token from meta tag or hidden div
+function getCSRFToken() {
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    if (metaTag) return metaTag.content;
+    const hiddenDiv = document.getElementById('csrf-token');
+    if (hiddenDiv) return hiddenDiv.dataset.token;
+    console.error('CSRF token not found');
+    return '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle quantity updates
+    document.querySelectorAll('.update-quantity').forEach(button => {
+        button.addEventListener('click', function() {
+            const input = this.closest('.input-group').querySelector('.quantity-input');
+            const currentValue = parseInt(input.value) || 0;
+            const maxQuantity = parseInt(input.getAttribute('max')) || 1000;
+            const action = this.getAttribute('data-action');
+            
+            let newValue = currentValue;
+            if (action === 'increase' && currentValue < maxQuantity) {
+                newValue = currentValue + 1;
+            } else if (action === 'decrease' && currentValue > 1) {
+                newValue = currentValue - 1;
+            }
+            
+            if (newValue !== currentValue) {
+                updateCartItem(input, newValue);
+            }
+        });
+    });
+    
+    // Handle direct input changes
+    document.querySelectorAll('.quantity-input').forEach(input => {
+        input.addEventListener('change', function() {
+            const maxQuantity = parseInt(this.getAttribute('max')) || 1000;
+            let value = parseInt(this.value) || 1;
+            
+            if (value > maxQuantity) {
+                value = maxQuantity;
+                this.value = maxQuantity;
+                showError(this, `Maximum quantity is ${maxQuantity}`);
+            } else if (value < 1) {
+                value = 1;
+                this.value = 1;
+            }
+            
+            updateCartItem(this, value);
+        });
+    });
+    
+    // Handle remove item
+    document.querySelectorAll('.remove-item').forEach(button => {
+        button.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            if (confirm('Are you sure you want to remove this item from your cart?')) {
+                removeCartItem(itemId);
+            }
+        });
+    });
+    
+    function updateCartItem(input, newQuantity) {
+        const itemId = input.getAttribute('data-item-id');
+        const maxQuantity = parseInt(input.getAttribute('max')) || 1000;
+        
+        // Update the UI immediately for better UX
+        input.value = newQuantity;
+        hideError(input);
+        
+        // Get CSRF token using the global function
+        const csrfToken = getCSRFToken();
+        
+        // Send the update to the server
+        const formData = new FormData();
+        formData.append('quantity', newQuantity);
+        formData.append('csrf_token', csrfToken);
+        
+        // Show loading state
+        const row = input.closest('tr');
+        const submitBtn = row ? row.querySelector('.update-quantity') : null;
+        const originalBtnContent = submitBtn ? submitBtn.innerHTML : '';
+        
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        }
+        
+        fetch(`/update_cart/${itemId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the page to update totals
+                window.location.reload();
+            } else {
+                showError(input, data.message || 'Failed to update cart');
+                // Reset to previous valid quantity if available
+                if (data.max_additional !== undefined) {
+                    input.value = Math.min(parseInt(input.value), parseInt(input.defaultValue) + data.max_additional);
+                } else {
+                    input.value = input.defaultValue;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError(input, 'An error occurred while updating the cart');
+            input.value = input.defaultValue;
+        })
+        .finally(() => {
+            // Reset button state
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnContent;
+            }
+        });
+    }
+    
+    function removeCartItem(itemId) {
+        // Get CSRF token using the global function
+        const csrfToken = getCSRFToken();
+        
+        const formData = new FormData();
+        formData.append('csrf_token', csrfToken);
+        
+        fetch(`/remove_from_cart/${itemId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': getCSRFToken()
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Failed to remove item: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while removing the item');
+        });
+    }
+    
+    function showError(input, message) {
+        const errorDiv = input.closest('td').querySelector('.quantity-error');
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            input.classList.add('is-invalid');
+            
+            // Hide error after 3 seconds
+            setTimeout(() => {
+                hideError(input);
+            }, 3000);
+        }
+    }
+    
+    function hideError(input) {
+        const errorDiv = input.closest('td').querySelector('.quantity-error');
+        if (errorDiv) {
+            errorDiv.style.display = 'none';
+            input.classList.remove('is-invalid');
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,583 @@
+# app/templates/admin/new_item.html
+{% extends "base.html" %}
+
+{% block title %}Add New Product - Admin{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    #scanner-container {
+        position: relative;
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto 1rem;
+        display: none;
+    }
+    #scanner-video {
+        width: 100%;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+    #scanner-canvas {
+        display: none;
+    }
+    .scan-button {
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Add New Product</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="product-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token_value }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Product Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="barcode" class="form-label">Barcode</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="barcode" name="barcode" 
+                                       placeholder="Optional" value="{{ request.args.get('barcode', '') }}">
+                                <button type="button" class="btn btn-outline-secondary me-2" id="toggle-scanner">
+                                    <i class="bi bi-upc-scan"></i> Scan Barcode
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="test-camera">
+                                    <i class="bi bi-camera"></i> Test Camera
+                                </button>
+                            </div>
+                            <div class="form-text">Leave blank to auto-generate or scan a barcode</div>
+                            
+                            <!-- Scanner UI -->
+                            <div id="scanner-container" class="mt-3">
+                                <video id="scanner-video" autoplay playsinline></video>
+                                <canvas id="scanner-canvas"></canvas>
+                                <div class="d-grid gap-2 mt-2">
+                                    <button type="button" class="btn btn-danger" id="stop-scanning">
+                                        <i class="bi bi-x-circle"></i> Stop Scanning
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="price" class="form-label">Price</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="price" name="price" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="stock" class="form-label">Stock Quantity</label>
+                            <input type="number" class="form-control" id="stock" name="stock" min="0" value="0" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="max_per_customer" class="form-label">Max per Customer</label>
+                            <input type="number" class="form-control" id="max_per_customer" name="max_per_customer" 
+                                   min="1" max="1000" value="20" required>
+                            <div class="form-text">Maximum quantity a customer can order (1-1000)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="image" class="form-label">Product Image</label>
+                        <input class="form-control" type="file" id="image" name="image" accept="image/*">
+                        <div class="form-text">Upload a high-quality image of the product.</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin.items') }}" class="btn btn-outline-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const scannerContainer = document.getElementById('scanner-container');
+        const video = document.getElementById('scanner-video');
+        const canvas = document.getElementById('scanner-canvas');
+        const toggleScannerBtn = document.getElementById('toggle-scanner');
+        const stopScanningBtn = document.getElementById('stop-scanning');
+        const barcodeInput = document.getElementById('barcode');
+        const statusMessage = document.createElement('div');
+        statusMessage.className = 'mt-2 text-muted small';
+        scannerContainer.parentNode.insertBefore(statusMessage, scannerContainer.nextSibling);
+        
+        let stream = null;
+        let scanning = false;
+        let scanAttempts = 0;
+        const MAX_SCAN_ATTEMPTS = 100; // Stop after 100 attempts (~10 seconds)
+        let lastCode = '';
+
+        // Toggle scanner visibility
+        toggleScannerBtn.addEventListener('click', function() {
+            if (scannerContainer.style.display === 'block') {
+                stopScanner();
+            } else {
+                // Show loading state
+                statusMessage.textContent = 'Loading camera...';
+                statusMessage.className = 'mt-2 text-info small';
+                
+                // Start scanner with a small delay to ensure UI updates
+                setTimeout(() => {
+                    startScanner().catch(err => {
+                        console.error('Scanner error:', err);
+                        statusMessage.textContent = 'Error: ' + (err.message || 'Failed to access camera');
+                        statusMessage.className = 'mt-2 text-danger small';
+                        stopScanner();
+                    });
+                }, 100);
+            }
+        });
+
+        // Stop scanning button
+        stopScanningBtn.addEventListener('click', stopScanner);
+
+        // Simple camera access function
+        async function getCameraStream() {
+            console.log('Attempting to access camera...');
+            
+            // Check for browser support
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Camera access is not supported in this browser.');
+            }
+            
+            try {
+                // First check if we have any video input devices
+                const devices = await navigator.mediaDevices.enumerateDevices().catch(e => {
+                    console.warn('Could not enumerate devices:', e);
+                    return [];
+                });
+                
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                console.log('Available video devices:', videoDevices);
+                
+                if (videoDevices.length === 0) {
+                    throw new Error('No video input devices found.');
+                }
+                
+                // Try with environment camera (rear) first, fallback to user camera
+                const constraints = {
+                    video: {
+                        facingMode: { ideal: 'environment' },  // Prefer rear camera
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                
+                // Try with preferred constraints first
+                try {
+                    return await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (err) {
+                    console.warn('Could not access preferred camera, trying with minimal constraints...', err);
+                    
+                    // Try with minimal constraints as fallback
+                    return await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: false
+                    });
+                }
+            } catch (err) {
+                console.error('Camera access failed:', err);
+                throw new Error('Could not access camera. Please ensure camera permissions are granted and try again.');
+            }
+        }
+
+        // Start the scanner
+        async function startScanner() {
+            try {
+                scannerContainer.style.display = 'block';
+                toggleScannerBtn.innerHTML = '<i class="bi bi-x-circle"></i> Hide Scanner';
+                statusMessage.textContent = 'Initializing camera...';
+                statusMessage.className = 'mt-2 text-info small';
+                
+                // Ensure video element is properly set up
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('webkit-playsinline', 'true');
+                
+                // Check if we have camera access at all
+                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                    console.error('MediaDevices API not available:', {
+                        mediaDevices: !!navigator.mediaDevices,
+                        enumerateDevices: navigator.mediaDevices ? !!navigator.mediaDevices.enumerateDevices : false,
+                        userAgent: navigator.userAgent
+                    });
+                    
+                    // Try to use the older API as a fallback
+                    // @ts-ignore
+                    const getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || 
+                                      navigator.mozGetUserMedia || navigator.msGetUserMedia;
+                    
+                    if (!getUserMedia) {
+                        throw new Error('Camera access not supported in this browser. Please use a modern browser like Chrome, Firefox, or Edge.');
+                    }
+                    
+                    // If we get here, we'll fall back to the older API
+                    console.log('Falling back to legacy getUserMedia API');
+                }
+                
+                // Check if the browser is running in an iframe
+                if (window.self !== window.top) {
+                    console.warn('Running in an iframe - camera access might be restricted');
+                    // Continue anyway, but show a warning
+                    statusMessage.textContent = 'Running in an iframe - camera access might be restricted';
+                }
+                
+                // Stop any existing stream
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                
+                // Get camera stream with simplified approach
+                try {
+                    // Stop any existing stream first
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                        stream = null;
+                    }
+                    
+                    // Get camera stream and set up video
+                    stream = await getCameraStream();
+                    video.srcObject = stream;
+                    
+                    // Wait for video to be ready
+                    await new Promise((resolve) => {
+                        const onSuccess = () => {
+                            video.play().then(() => {
+                                console.log('Video playback started');
+                                resolve();
+                            }).catch(e => {
+                                console.error('Error playing video:', e);
+                                // Try to continue even if play fails
+                                resolve();
+                            });
+                        };
+                        
+                        if (video.readyState >= 2) { // HAVE_CURRENT_DATA
+                            onSuccess();
+                        } else {
+                            video.onloadedmetadata = onSuccess;
+                            // Fallback in case onloadedmetadata doesn't fire
+                            setTimeout(() => {
+                                if (video.readyState < 2) {
+                                    console.log('Video readyState still not ready, continuing anyway');
+                                    resolve();
+                                }
+                            }, 1000);
+                        }
+                    });
+                    
+                    statusMessage.textContent = 'Position barcode in front of camera...';
+                    
+                    // Start scanning
+                    scanning = true;
+                    requestAnimationFrame(scanBarcode);
+                    
+                } catch (err) {
+                    console.error('Failed to access camera:', err);
+                    throw new Error('Could not access camera. Please ensure camera permissions are granted.');
+                }
+                
+                // Reset scan attempts
+                scanAttempts = 0;
+                lastCode = '';
+                
+                // Start scanning
+                scanning = true;
+                scanBarcode();
+                
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                let errorMessage = 'Error: Could not access camera. ';
+                
+                if (err.name === 'NotAllowedError') {
+                    errorMessage += 'Please check camera permissions in your browser settings.';
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    errorMessage += 'No camera found. Please check your device.';
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    errorMessage += 'Camera is already in use or cannot be accessed.';
+                } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+                    errorMessage += 'Camera constraints could not be satisfied.';
+                } else if (err.message && err.message.includes('permission')) {
+                    errorMessage += 'Camera permission denied. Please check your browser settings.';
+                } else {
+                    errorMessage += err.message || 'Unknown error occurred.';
+                }
+                
+                statusMessage.textContent = errorMessage;
+                statusMessage.className = 'mt-2 text-danger small';
+                stopScanner();
+                
+                // Show instructions for enabling camera on Android
+                if (navigator.userAgent.match(/Android/i)) {
+                    const androidHelp = document.createElement('div');
+                    androidHelp.className = 'alert alert-info mt-3';
+                    androidHelp.innerHTML = `
+                        <strong>Android Users:</strong><br>
+                        1. Make sure camera permissions are enabled in your browser settings<br>
+                        2. Try using Chrome browser if you're using a different browser<br>
+                        3. Make sure no other app is using the camera
+                    `;
+                    statusMessage.after(androidHelp);
+                }
+            }
+        }
+
+        // Stop the scanner
+        function stopScanner() {
+            scanning = false;
+            if (stream) {
+                stream.getTracks().forEach(track => {
+                    track.stop();
+                    stream.removeTrack(track);
+                });
+                if (video.srcObject) {
+                    video.srcObject = null;
+                }
+                stream = null;
+            }
+            scannerContainer.style.display = 'none';
+            toggleScannerBtn.innerHTML = '<i class="bi bi-upc-scan"></i> Scan Barcode';
+            
+            // Clear status message after a delay
+            if (statusMessage.textContent.includes('detected') || statusMessage.textContent.includes('Error')) {
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                }, 3000);
+            } else {
+                statusMessage.textContent = '';
+            }
+        }
+
+        // Scan for barcodes
+        function scanBarcode() {
+            if (!scanning) return;
+            
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Update canvas size to match video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Draw video frame to canvas
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Get image data from canvas
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                try {
+                    // Try to detect QR/barcode
+                    const code = jsQR(
+                        imageData.data,
+                        imageData.width,
+                        imageData.height,
+                        {
+                            inversionAttempts: 'attemptBoth',
+                            maxScansPerSecond: 10
+                        }
+                    );
+                    
+                    if (code && code.data && code.data !== lastCode) {
+                        lastCode = code.data;
+                        
+                        // Validate the barcode (basic check for common barcode lengths)
+                        const barcode = code.data.trim();
+                        if (barcode.length >= 8 && barcode.length <= 13) {
+                            barcodeInput.value = barcode;
+                            statusMessage.textContent = 'Barcode detected!';
+                            statusMessage.className = 'mt-2 text-success small';
+                            
+                            // Small delay to show success message
+                            setTimeout(() => {
+                                stopScanner();
+                                document.getElementById('name').focus();
+                            }, 500);
+                            return;
+                        } else {
+                            statusMessage.textContent = 'Invalid barcode format. Please try again.';
+                            statusMessage.className = 'mt-2 text-warning small';
+                        }
+                    }
+                    
+                    // Limit scan attempts to prevent hanging
+                    scanAttempts++;
+                    if (scanAttempts > MAX_SCAN_ATTEMPTS) {
+                        statusMessage.textContent = 'Scan timed out. Please try again.';
+                        statusMessage.className = 'mt-2 text-warning small';
+                        stopScanner();
+                        return;
+                    }
+                    
+                    // Show scanning status
+                    if (scanAttempts % 10 === 0) {
+                        statusMessage.textContent = `Scanning... (${Math.round(scanAttempts/10)}s)`;
+                    }
+                    
+                } catch (err) {
+                    console.error('Error scanning barcode:', err);
+                    statusMessage.textContent = 'Error scanning barcode. Please try again.';
+                    statusMessage.className = 'mt-2 text-danger small';
+                    stopScanner();
+                    return;
+                }
+                
+                // Continue scanning
+                requestAnimationFrame(scanBarcode);
+            } else if (video.readyState === video.HAVE_NOTHING) {
+                // Video not ready yet, try again shortly
+                setTimeout(scanBarcode, 100);
+            } else {
+                // Continue scanning
+                requestAnimationFrame(scanBarcode);
+            }
+        }
+
+        // Function to check camera permissions
+        async function checkCameraPermissions() {
+            try {
+                // This will trigger the permission prompt if not already granted
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // Stop all tracks to release the camera
+                stream.getTracks().forEach(track => track.stop());
+                return true;
+            } catch (err) {
+                console.error('Camera permission check failed:', err);
+                return false;
+            }
+        }
+
+        // Check camera permissions when the page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const hasPermission = await checkCameraPermissions();
+                if (!hasPermission) {
+                    console.warn('Camera access not granted or not available');
+                    statusMessage.textContent = 'Camera access is required for barcode scanning. Please allow camera access and refresh the page.';
+                    statusMessage.className = 'mt-2 text-warning small';
+                }
+            } catch (err) {
+                console.error('Error checking camera permissions:', err);
+            }
+        });
+
+        // Test camera button
+        document.getElementById('test-camera').addEventListener('click', async function() {
+            const testButton = this;
+            const originalText = testButton.innerHTML;
+            
+            try {
+                // Disable button during test
+                testButton.disabled = true;
+                testButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Testing...';
+                
+                statusMessage.textContent = 'Testing camera access...';
+                statusMessage.className = 'mt-2 text-info small';
+                
+                // First check WebRTC support
+                const webrtcSupport = checkWebRTCSupport();
+                console.log('WebRTC Support:', webrtcSupport);
+                
+                if (!webrtcSupport['Legacy getUserMedia'] && !webrtcSupport['getUserMedia']) {
+                    throw new Error('WebRTC is not supported in this browser. Please use the latest version of Chrome, Firefox, or Edge.');
+                }
+                
+                // Try to get camera stream
+                const stream = await getCameraStream();
+                
+                // If we get here, we have camera access
+                const videoTracks = stream.getVideoTracks();
+                const track = videoTracks[0];
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                
+                console.log('Camera capabilities:', capabilities);
+                
+                // Show success message with camera info
+                let cameraInfo = 'Camera access successful!\n\n';
+                cameraInfo += `Camera: ${track.label || 'Unknown'}\n`;
+                cameraInfo += `Resolution: ${capabilities.width?.max || 'Unknown'}x${capabilities.height?.max || 'Unknown'}\n`;
+                cameraInfo += `FPS: ${capabilities.frameRate?.max || 'Unknown'}`;
+                
+                alert(cameraInfo);
+                
+                // Stop the stream after testing
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Update status message
+                statusMessage.textContent = 'Camera test successful! Click "Scan Barcode" to start scanning.';
+                statusMessage.className = 'mt-2 text-success small';
+                
+            } catch (err) {
+                console.error('Camera test failed:', err);
+                
+                // Reset button state
+                testButton.disabled = false;
+                testButton.innerHTML = originalText;
+                
+                // Detailed error handling
+                let errorMessage = 'Camera test failed: ';
+                let userMessage = '';
+                
+                if (err.name === 'NotAllowedError') {
+                    errorMessage += 'Permission denied';
+                    userMessage = 'Camera access was denied. Please check your browser settings and allow camera access.';
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    errorMessage += 'No camera found';
+                    userMessage = 'No camera was found. Please ensure a camera is connected and try again.';
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    errorMessage += 'Camera in use';
+                    userMessage = 'Could not access the camera. It might be in use by another application.';
+                } else if (err.name === 'TypeError' && err.message.includes('getUserMedia')) {
+                    errorMessage += 'Browser not supported';
+                    userMessage = 'Your browser does not support camera access. Please use the latest version of Chrome, Firefox, or Edge.';
+                } else {
+                    errorMessage += err.message || 'Unknown error';
+                    userMessage = 'Failed to access camera. Please try again or check browser compatibility.';
+                }
+                
+                // Update status message
+                statusMessage.textContent = errorMessage;
+                statusMessage.className = 'mt-2 text-danger small';
+                
+                // Show alert with user-friendly message
+                alert(userMessage + '\n\nError details: ' + errorMessage);
+                
+                // Log detailed error info
+                console.error('Error details:', {
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack,
+                    userAgent: navigator.userAgent,
+                    webrtcSupport: checkWebRTCSupport()
+                });
+            }
+        });
+
+        // Clean up when leaving the page
+        window.addEventListener('beforeunload', stopScanner);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Store Settings - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Store Settings</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.settings') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <!-- Currency Settings -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Currency Settings</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="currency" class="form-label">Currency Symbol</label>
+                                <input type="text" class="form-control" id="currency" name="currency" 
+                                       value="{{ settings.currency }}" required>
+                                <div class="form-text">Enter the currency symbol (e.g., $, €, £, ¥)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Currency Position</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="currency_position" 
+                                           id="currency_left" value="left" 
+                                           {{ 'checked' if settings.currency_position == 'left' else '' }}>
+                                    <label class="form-check-label" for="currency_left">
+                                        Left ($10.00)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="currency_position" 
+                                           id="currency_right" value="right"
+                                           {{ 'checked' if settings.currency_position == 'right' else '' }}>
+                                    <label class="form-check-label" for="currency_right">
+                                        Right (10.00$)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Display Settings -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Display Settings</h5>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="show_addresses" 
+                                   name="show_addresses" {{ 'checked' if settings.show_addresses else '' }}>
+                            <label class="form-check-label" for="show_addresses">
+                                Show shipping/billing addresses in order details
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="show_prices" 
+                                   name="show_prices" {{ 'checked' if settings.show_prices else '' }}>
+                            <label class="form-check-label" for="show_prices">
+                                Show prices in order details
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="prices_as_free" 
+                                   name="prices_as_free" {{ 'checked' if settings.prices_as_free else '' }}>
+                            <label class="form-check-label" for="prices_as_free">
+                                Show all prices as 'Free'
+                            </label>
+                            <div class="form-text text-muted">When enabled, all prices will be displayed as 'Free'</div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Settings Information</h5>
+                <p class="card-text">Here you can configure various store settings including currency and display options.</p>
+                <ul class="list-unstyled">
+                    <li><i class="bi bi-currency-dollar me-2"></i> Set your preferred currency symbol</li>
+                    <li><i class="bi bi-gear me-2"></i> Configure display options</li>
+                    <li><i class="bi bi-eye me-2"></i> Control visibility of sensitive information</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

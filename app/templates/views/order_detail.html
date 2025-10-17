@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Order #{{ order.id }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Order #{{ order.id }}</h2>
+            <a href="{{ url_for('views.orders') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Orders
+            </a>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Order Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <h6>Order Status</h6>
+                        <span class="badge bg-{{ 'success' if order.status == 'Delivered' else 'warning' }}">
+                            {{ order.status }}
+                        </span>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Order Date</h6>
+                        <p class="mb-0">{{ order.date_ordered.strftime('%B %d, %Y') }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Order Total</h6>
+                        <p class="mb-0">
+                            {{ settings.format_price(order.total) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Order Items</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item</th>
+                            {% if settings.show_prices %}
+                            <th class="text-end">Price</th>
+                            {% endif %}
+                            <th class="text-center">Qty</th>
+                            {% if settings.show_prices %}
+                            <th class="text-end">Total</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if item.item.image_url %}
+                                    <img src="{{ item.item.image_url }}" alt="{{ item.item.name }}" 
+                                         style="width: 50px; height: 50px; object-fit: cover;" class="me-3">
+                                    {% endif %}
+                                    <div>
+                                        <h6 class="mb-0">{{ item.item.name }}</h6>
+                                        <small class="text-muted">SKU: {{ item.item.id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-end">{{ settings.format_price(item.price) }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                            <td class="text-end">
+                                {{ settings.format_price(item.price * item.quantity) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="{{ '3' if settings.show_prices else '2' }}" class="text-end"><strong>Subtotal:</strong></td>
+                            <td class="text-end">
+                                {{ settings.format_price(order.total) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="{{ '3' if settings.show_prices else '2' }}" class="text-end"><strong>Shipping:</strong></td>
+                            <td class="text-end">
+                                {{ settings.format_price(0) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="{{ '3' if settings.show_prices else '2' }}" class="text-end"><strong>Total:</strong></td>
+                            <td class="text-end">
+                                <strong>{{ settings.format_price(order.total) }}</strong>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

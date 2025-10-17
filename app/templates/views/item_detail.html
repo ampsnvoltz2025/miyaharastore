@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        {% if item.image_url %}
+        <img src="{{ item.image_url }}" class="img-fluid rounded" alt="{{ item.name }}">
+        {% else %}
+        <div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 400px;">
+            <i class="bi bi-image" style="font-size: 4rem;"></i>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-md-6">
+        <h2>{{ item.name }}</h2>
+        <p class="h3 text-primary mb-3">
+            {{ settings.format_price(item.price) }}
+        </p>
+        
+        <div class="mb-4">
+            <span class="badge bg-{{ 'success' if item.stock > 0 else 'danger' }} mb-2">
+                {{ 'In Stock' if item.stock > 0 else 'Out of Stock' }}
+            </span>
+            <p>{{ item.description }}</p>
+        </div>
+        
+        <form method="POST" action="{{ url_for('views.add_to_cart', item_id=item.id) }}" class="mb-4" id="add-to-cart-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token_value }}">
+            <div class="row g-3">
+                <div class="col-auto">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" value="1" min="1" max="{{ item.stock }}" style="width: 80px;">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary btn-lg" id="add-to-cart-btn" {{ 'disabled' if item.stock <= 0 }}>
+                        <i class="bi bi-cart-plus"></i> Add to Cart
+                    </button>
+                    <div id="form-errors" class="text-danger mt-2"></div>
+                </div>
+            </div>
+        </form>
+        
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Product Details</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <strong>Availability:</strong> 
+                    <span class="{{ 'text-success' if item.stock > 0 else 'text-danger' }}">
+                        {{ 'In Stock' if item.stock > 0 else 'Out of Stock' }}
+                    </span>
+                </li>
+                <li class="list-group-item">
+                    <strong>Category:</strong> {{ item.category or 'General' }}
+                </li>
+                <li class="list-group-item">
+                    <strong>Date Added:</strong> {{ item.date_added.strftime('%B %d, %Y') }}
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('add-to-cart-form');
+        const errorDiv = document.getElementById('form-errors');
+        const submitBtn = document.getElementById('add-to-cart-btn');
+        const quantityInput = document.getElementById('quantity');
+        
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...';
+                }
+                
+                // Clear previous errors
+                if (errorDiv) {
+                    errorDiv.textContent = '';
+                }
+                
+                try {
+                    const formData = new FormData(form);
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.message || 'An error occurred');
+                    }
+                    
+                    // Handle success response
+                    if (data.success) {
+                        // Show success message
+                        if (data.message) {
+                            // Create and show a flash message
+                            const alert = document.createElement('div');
+                            alert.className = `alert alert-${data.category || 'success'} alert-dismissible fade show`;
+                            alert.role = 'alert';
+                            alert.innerHTML = `
+                                ${data.message}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            `;
+                            
+                            // Insert the alert before the form
+                            form.parentNode.insertBefore(alert, form);
+                            
+                            // Auto-dismiss after 3 seconds
+                            setTimeout(() => {
+                                const bsAlert = new bootstrap.Alert(alert);
+                                bsAlert.close();
+                            }, 3000);
+                        }
+                        
+                        // Update quantity if it was adjusted
+                        if (data.adjusted_quantity && quantityInput) {
+                            quantityInput.value = data.adjusted_quantity;
+                        }
+                        
+                        // Redirect if needed
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        } else if (data.redirect === false) {
+                            // Just reset the button if we're not redirecting
+                            if (submitBtn) {
+                                submitBtn.disabled = false;
+                                submitBtn.innerHTML = '<i class="bi bi-cart-plus"></i> Add to Cart';
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    if (errorDiv) {
+                        errorDiv.textContent = error.message || 'An error occurred while adding to cart. Please try again.';
+                        errorDiv.className = 'text-danger mt-2';
+                    }
+                    
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-cart-plus"></i> Add to Cart';
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
