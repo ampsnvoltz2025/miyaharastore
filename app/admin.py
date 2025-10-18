@@ -66,7 +66,8 @@ def new_item():
         if 'image' in request.files:
             image = request.files['image']
             if image.filename != '':
-                filename = secure_filename(image.filename)
+                # filename = secure_filename(image.filename)
+                filename = image.filename
                 image_path = os.path.join('static/uploads', filename)
                 image.save(os.path.join('app', image_path))
                 image_url = url_for('static', filename=f'uploads/{filename}')
