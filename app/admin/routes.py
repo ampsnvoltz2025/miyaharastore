@@ -60,7 +60,7 @@ def new_item():
             )
             db.session.add(item)
             db.session.commit()
-            flash('Item added successfully! {image_path}', 'success')
+            flash(f'Item added successfully! {image_path}', 'success')
             return redirect(url_for('admin.items'))
         except Exception as e:
             db.session.rollback()
