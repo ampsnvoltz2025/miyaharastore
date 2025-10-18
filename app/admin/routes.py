@@ -39,7 +39,8 @@ def new_item():
         image = request.files.get('image')
         image_path = None
         if image and image.filename:
-            filename = secure_filename(image.filename)
+            # filename = secure_filename(image.filename)
+            filename = image.filename
             upload_folder = os.path.join('app', 'static', 'uploads')
             os.makedirs(upload_folder, exist_ok=True)
             # Save the image file with proper path formatting
@@ -59,7 +60,7 @@ def new_item():
             )
             db.session.add(item)
             db.session.commit()
-            flash('Item added successfully!', 'success')
+            flash('Item added successfully! {image_path}', 'success')
             return redirect(url_for('admin.items'))
         except Exception as e:
             db.session.rollback()
