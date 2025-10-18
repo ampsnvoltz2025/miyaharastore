@@ -50,6 +50,7 @@ def items():
 @admin.route('/items/new', methods=['GET', 'POST'])
 def new_item():
     if request.method == 'POST':
+        image_path = ''
         name = request.form.get('name')
         price = float(request.form.get('price'))
         description = request.form.get('description')
@@ -89,7 +90,7 @@ def new_item():
         db.session.add(new_item)
         db.session.commit()
         
-        flash('Item added successfully!', 'success')
+        flash('Item added successfully! {image_path}', 'success')
         return redirect(url_for('admin.items'))
     
     return render_template('admin/new_item.html')
