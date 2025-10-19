@@ -18,19 +18,6 @@ def dashboard():
                          recent_orders=recent_orders,
                          settings=settings)
 
-@admin.route('/freestore/')
-def dashboard():
-    total_items = Item.query.count()
-    total_orders = Order.query.count()
-    recent_orders = Order.query.order_by(Order.date_ordered.desc()).limit(5).all()
-    settings = StoreSettings.get_settings()
-    return render_template('fs/admin/dashboard.html', 
-                         total_items=total_items,
-                         total_orders=total_orders,
-                         recent_orders=recent_orders,
-                         settings=settings)
-
-
 @admin.route('/items')
 def items():
     all_items = Item.query.all()
