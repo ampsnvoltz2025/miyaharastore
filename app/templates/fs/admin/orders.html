@@ -1,0 +1,75 @@
+# app/templates/admin/orders.html
+admin_orders_html = """{% extends "base.html" %}
+{% from 'macros.html' import format_price %}
+
+{% block title %}Manage Orders - Admin{% endblock %}
+
+{% block content %}
+{% set settings = g.store_settings %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Manage Orders</h1>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+        <a href="{{ url_for('admin.export_orders') }}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-download"></i> Export to CSV
+        </a>
+        <div class="btn-group">
+            <a href="{{ url_for('admin.orders') }}" class="btn btn-sm btn-outline-secondary {{ 'active' if not request.args.get('status') }}">All</a>
+            <a href="?status=Processing" class="btn btn-sm btn-outline-warning {{ 'active' if request.args.get('status') == 'Processing' }}">Processing</a>
+            <a href="?status=Shipped" class="btn btn-sm btn-outline-info {{ 'active' if request.args.get('status') == 'Shipped' }}">Shipped</a>
+            <a href="?status=Delivered" class="btn btn-sm btn-outline-success {{ 'active' if request.args.get('status') == 'Delivered' }}">Delivered</a>
+            <a href="?status=Cancelled" class="btn btn-sm btn-outline-danger {{ 'active' if request.args.get('status') == 'Cancelled' }}">Cancelled</a>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Date</th>
+                <th>Items</th>
+                {% if settings.show_prices %}
+                <th>Total</th>
+                {% endif %}
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td>#{{ order.id }}</td>
+                <td>{{ order.user.first_name }} {{ order.user.last_name }}</td>
+                <td>{{ order.date_ordered.strftime('%b %d, %Y') }}</td>
+                <td>{{ order.items|length }} item(s)</td>
+                {% if settings.show_prices %}
+                <td>{{ settings.format_price(order.total) }}</td>
+                {% endif %}
+                <td>
+                    <span class="badge 
+                        {% if order.status == 'Processing' %}bg-warning
+                        {% elif order.status == 'Shipped' %}bg-info
+                        {% elif order.status == 'Delivered' %}bg-success
+                        {% elif order.status == 'Cancelled' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ order.status }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{{ url_for('admin.view_order', order_id=order.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> View
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="{{ '7' if settings.show_prices else '6' }}" class="text-center py-4">No orders found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+"""

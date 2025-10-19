@@ -1,0 +1,176 @@
+# app/templates/admin/view_order.html
+admin_view_order_html = """{% extends "base.html" %}
+{% from 'macros.html' import format_price %}
+
+{% block title %}Order #{{ order.id }} - Admin{% endblock %}
+
+{% block content %}
+{% set settings = g.store_settings %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Order #{{ order.id }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.orders') }}" class="btn btn-sm btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left"></i> Back to Orders
+        </a>
+        <form action="{{ url_for('admin.update_order_status', order_id=order.id) }}" method="POST" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="input-group input-group-sm">
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="Processing" {{ 'selected' if order.status == 'Processing' }}>Processing</option>
+                    <option value="Shipped" {{ 'selected' if order.status == 'Shipped' }}>Shipped</option>
+                    <option value="Delivered" {{ 'selected' if order.status == 'Delivered' }}>Delivered</option>
+                    <option value="Cancelled" {{ 'selected' if order.status == 'Cancelled' }}>Cancelled</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Order Items</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                {% if settings.show_prices %}
+                                <th class="text-end">Price</th>
+                                {% endif %}
+                                <th class="text-center">Qty</th>
+                                {% if settings.show_prices %}
+                                <th class="text-end">Total</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order_item in order.items %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if order_item.item.image_url %}
+                                        <img src="{{ order_item.item.image_url }}" alt="{{ order_item.item.name }}" style="width: 50px; height: 50px; object-fit: cover;" class="me-3">
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-0">{{ order_item.item.name }}</h6>
+                                            <small class="text-muted">SKU: {{ order_item.item.id }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                {% if settings.show_prices %}
+                                <td class="text-end">{{ order_item.price }}</td>
+                                {% endif %}
+                                <td class="text-center">{{ order_item.quantity }}</td>
+                                {% if settings.show_prices %}
+                                <td class="text-end">
+                                    {{ settings.format_price(order_item.price * order_item.quantity) }}
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            {% if settings.show_prices %}
+                            <tr>
+                                <td colspan="{{ '3' if settings.show_prices else '2' }}" class="text-end"><strong>Subtotal:</strong></td>
+                                <td class="text-end">
+                                    {{ settings.format_price(order.total) }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="{{ '3' if settings.show_prices else '2' }}" class="text-end"><strong>Shipping:</strong></td>
+                                <td class="text-end">
+                                    {{ settings.format_price(0) }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="{{ '3' if settings.show_prices else '2' }}" class="text-end"><strong>Total:</strong></td>
+                                <td class="text-end">
+                                    <strong>{{ settings.format_price(order.total) }}</strong>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Order Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6>Order Status</h6>
+                    <span class="badge 
+                        {% if order.status == 'Processing' %}bg-warning
+                        {% elif order.status == 'Shipped' %}bg-info
+                        {% elif order.status == 'Delivered' %}bg-success
+                        {% elif order.status == 'Cancelled' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ order.status }}
+                    </span>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Order Date</h6>
+                    <p class="mb-0">{{ order.date_ordered.strftime('%B %d, %Y at %I:%M %p') }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Order ID</h6>
+                    <p class="mb-0">#{{ order.id }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Payment Method</h6>
+                    <p class="mb-0">Credit Card (Stripe)</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Customer Information</h5>
+            </div>
+            <div class="card-body">
+                <h6>Contact Information</h6>
+                <p class="mb-1">{{ order.user.first_name }} {{ order.user.last_name }}</p>
+                <p class="mb-0">{{ order.user.email }}</p>
+                
+                {% if settings.show_addresses %}
+                <hr>
+                
+                <h6>Shipping Address</h6>
+                <p class="mb-0">
+                    {{ order.shipping_first_name }} {{ order.shipping_last_name }}<br>
+                    {{ order.shipping_address1 }}<br>
+                    {% if order.shipping_address2 %}{{ order.shipping_address2 }}<br>{% endif %}
+                    {{ order.shipping_city }}, {{ order.shipping_state }} {{ order.shipping_zip_code }}<br>
+                    {{ order.shipping_country }}
+                </p>
+                {% endif %}
+                
+                <hr>
+                
+                <h6>Billing Address</h6>
+                <p class="mb-0">
+                    {{ order.shipping_first_name }} {{ order.shipping_last_name }}<br>
+                    {{ order.shipping_address1 }}<br>
+                    {% if order.shipping_address2 %}{{ order.shipping_address2 }}<br>{% endif %}
+                    {{ order.shipping_city }}, {{ order.shipping_state }} {{ order.shipping_zip_code }}<br>
+                    {{ order.shipping_country }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+"""

@@ -1,0 +1,143 @@
+# app/templates/admin/dashboard.html
+admin_dashboard_html = """{% extends "base.html" %}
+{% from 'macros.html' import format_price %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+{% set settings = g.store_settings %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.export_customers') }}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-download"></i> Export Customers
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase">Total Products</h6>
+                        <h2 class="mb-0">{{ total_items }}</h2>
+                    </div>
+                    <i class="bi bi-box-seam" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="small text-white stretched-link" href="{{ url_for('admin.items') }}">View Details</a>
+                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase">Total Orders</h6>
+                        <h2 class="mb-0">{{ total_orders }}</h2>
+                    </div>
+                    <i class="bi bi-cart-check" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="small text-white stretched-link" href="{{ url_for('admin.orders') }}">View Details</a>
+                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase">Pending Orders</h6>
+                        <h2 class="mb-0">{{ recent_orders|selectattr('status', 'equalto', 'Processing')|list|length }}</h2>
+                    </div>
+                    <i class="bi bi-clock-history" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="small text-dark stretched-link" href="{{ url_for('admin.orders') }}?status=Processing">View Details</a>
+                <div class="small text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Recent Orders</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td>#{{ order.id }}</td>
+                                <td>{{ order.user.first_name }} {{ order.user.last_name }}</td>
+                                <td>{{ order.date_ordered.strftime('%b %d, %Y') }}</td>
+                                <td>{{ settings.format_price(order.total) if settings.show_prices else '' }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.status == 'Delivered' else 'warning' }}">
+                                        {{ order.status }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('admin.view_order', order_id=order.id) }}" class="btn btn-sm btn-outline-primary">
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">No recent orders</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Quick Actions</h6>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="{{ url_for('admin.new_item') }}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-plus-circle me-2"></i> Add New Product
+                </a>
+                <a href="{{ url_for('admin.items') }}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-box-seam me-2"></i> Manage Products
+                </a>
+                <a href="{{ url_for('admin.orders') }}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-cart-check me-2"></i> View All Orders
+                </a>
+                <a href="{{ url_for('admin.settings') }}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-gear me-2"></i> Store Settings
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+"""

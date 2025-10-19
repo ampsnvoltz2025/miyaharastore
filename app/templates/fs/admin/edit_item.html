@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Product - Admin{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Edit Product</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token_value }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Product Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ item.name }}" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="barcode" class="form-label">Barcode</label>
+                            <input type="text" class="form-control" id="barcode" name="barcode" 
+                                   value="{{ item.barcode or '' }}" placeholder="Optional">
+                            <div class="form-text">Leave blank to keep current barcode</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="price" class="form-label">Price</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="price" name="price" step="0.01" min="0" value="{{ "%.2f"|format(item.price) }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="stock" class="form-label">Stock Quantity</label>
+                            <input type="number" class="form-control" id="stock" name="stock" min="0" value="{{ item.stock }}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="max_per_customer" class="form-label">Max per Customer</label>
+                            <input type="number" class="form-control" id="max_per_customer" name="max_per_customer" 
+                                   min="1" max="1000" value="{{ item.max_per_customer or 20 }}" required>
+                            <div class="form-text">Maximum quantity a customer can order (1-1000)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required>{{ item.description }}</textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="image" class="form-label">Product Image</label>
+                        {% if item.image_url %}
+                        <div class="mb-2">
+                            <img src="{{ item.image_url }}" alt="{{ item.name }}" style="max-width: 200px; max-height: 200px;" class="img-thumbnail">
+                            <div class="form-text">Current image</div>
+                        </div>
+                        {% endif %}
+                        <input class="form-control" type="file" id="image" name="image" accept="image/*">
+                        <div class="form-text">Leave blank to keep current image. Upload a new image to replace it.</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin.items') }}" class="btn btn-outline-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Update Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+"""

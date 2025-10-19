@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block title %}Scan Barcode{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-upc-scan me-2"></i>Barcode Scanner</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    Point your camera at a barcode to scan it. Make sure the barcode is well-lit and in focus.
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="camera-container mb-3">
+                            <video id="scanner" width="100%" playsinline style="display: none; background: #000;"></video>
+                            <canvas id="scanner-canvas" style="display: none;"></canvas>
+                            <div id="scanner-placeholder" class="text-center py-5 bg-light rounded border">
+                                <i class="bi bi-camera-video-off" style="font-size: 4rem; color: #6c757d;"></i>
+                                <p class="mt-3">Camera is off</p>
+                                <button id="start-scanner" class="btn btn-primary btn-lg mt-2">
+                                    <i class="bi bi-camera-video"></i> Start Camera
+                                </button>
+                            </div>
+                            <div id="camera-controls" class="text-center mt-2" style="display: none;">
+                                <button id="stop-scanner" class="btn btn-danger">
+                                    <i class="bi bi-stop-circle"></i> Stop Camera
+                                </button>
+                                <button id="switch-camera" class="btn btn-secondary ms-2">
+                                    <i class="bi " id="camera-icon"></i> Switch Camera
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Or upload an image</h5>
+                        <form method="POST" enctype="multipart/form-data" id="barcode-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token_value }}">
+                            <div class="mb-3">
+                                <label for="barcode-image" class="form-label">Upload barcode image</label>
+                                <input class="form-control" type="file" id="barcode-image" name="barcode_image" accept="image/*" capture="camera">
+                                <div class="form-text">Take a photo or select an image containing a barcode</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-upload"></i> Upload and Scan
+                            </button>
+                        </form>
+                        
+                        <div id="scan-result" class="mt-4" style="display: none;">
+                            <h5>Scan Result</h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    <div id="barcode-info">
+                                        <p>Barcode: <span id="barcode-value">-</span></p>
+                                        <div id="item-info">
+                                            <!-- Item details will be shown here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Verify CSRF token is available
+const csrfToken = getCSRFToken();
+console.log('CSRF Token from meta tag:', csrfToken);
+if (!csrfToken) {
+    console.error('CSRF token not found in meta tag!');
+}
+
+let stream = null;
+let currentFacingMode = 'environment'; // Start with back camera
+let videoDevices = [];
+let currentDeviceIndex = 0;
+
+// Update camera icon based on current facing mode
+function updateCameraIcon() {
+    const icon = document.getElementById('camera-icon');
+    icon.className = `bi ${currentFacingMode === 'environment' ? 'bi-camera-video-off' : 'bi-camera-video'}`;
+}
+
+// Stop the current stream
+async function stopStream() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    
+    const video = document.getElementById('scanner');
+    video.srcObject = null;
+    video.style.display = 'none';
+    document.getElementById('scanner-placeholder').style.display = 'block';
+    document.getElementById('camera-controls').style.display = 'none';
+    document.getElementById('start-scanner').style.display = 'block';
+}
+
+// Start camera with specified constraints
+async function startCamera(constraints) {
+    try {
+        // Stop any existing stream
+        if (stream) {
+            stopStream();
+        }
+        
+        // Ensure mediaDevices is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            throw new Error('MediaDevices API not supported in this browser');
+        }
+        
+        // Get available video devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        // If no specific device is requested, use the first available
+        if (!constraints || !constraints.deviceId) {
+            if (videoDevices.length > 0) {
+                constraints = constraints || {};
+                constraints.deviceId = videoDevices[0].deviceId;
+            }
+        }
+        
+        // Request camera access
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: constraints || {
+                facingMode: currentFacingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
+        
+        const video = document.getElementById('scanner');
+        video.srcObject = stream;
+        video.style.display = 'block';
+        document.getElementById('scanner-placeholder').style.display = 'none';
+        document.getElementById('camera-controls').style.display = 'block';
+        document.getElementById('start-scanner').style.display = 'none';
+        
+        // Update camera controls
+        updateCameraIcon();
+        
+        // Start barcode scanning
+        await video.play();
+        scanBarcode(video);
+        
+    } catch (err) {
+        console.error('Error accessing camera:', err);
+        let errorMessage = 'Could not access the camera. ';
+        
+        if (err.name === 'NotAllowedError') {
+            errorMessage = 'Camera access was denied. Please check your browser settings and allow camera access.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            errorMessage = 'No camera found on this device.';
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+            errorMessage = 'Camera is already in use by another application.';
+        } else if (err.name === 'OverconstrainedError') {
+            errorMessage = 'The requested camera mode is not available. Trying another mode...';
+            // Try with less constraints
+            return startCamera({});
+        } else {
+            errorMessage = `Error: ${err.message || 'Unknown error occurred'}`;
+        }
+        
+        // Show error in the UI
+        const placeholder = document.getElementById('scanner-placeholder');
+        placeholder.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                ${errorMessage}
+            </div>
+            <button id="retry-camera" class="btn btn-primary mt-2">
+                <i class="bi bi-arrow-clockwise"></i> Try Again
+            </button>
+        `;
+        
+        // Add retry button handler
+        document.getElementById('retry-camera').addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
+}
+
+// Start camera button
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize camera button
+    const startButton = document.getElementById('start-scanner');
+    if (startButton) {
+        startButton.addEventListener('click', () => {
+            console.log('Start camera button clicked');
+            startCamera({
+                facingMode: currentFacingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            });
+        });
+    }
+    
+    // Initialize other event listeners
+    const stopButton = document.getElementById('stop-scanner');
+    if (stopButton) {
+        stopButton.addEventListener('click', stopStream);
+    }
+    
+    const switchButton = document.getElementById('switch-camera');
+    if (switchButton) {
+        switchButton.addEventListener('click', () => {
+            if (videoDevices.length <= 1) {
+                // Toggle between front and back camera if only one camera is available
+                currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+                startCamera({
+                    facingMode: currentFacingMode,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                });
+            } else {
+                // Cycle through available cameras
+                currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+                const deviceId = videoDevices[currentDeviceIndex].deviceId;
+                startCamera({
+                    deviceId: { exact: deviceId },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                });
+            }
+        });
+    }
+    
+    // Handle form submission
+    const barcodeForm = document.getElementById('barcode-form');
+    if (barcodeForm) {
+        barcodeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('barcode-image');
+            
+            if (fileInput.files.length === 0) {
+                alert('Please select an image file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('barcode_image', fileInput.files[0]);
+            
+            try {
+                const response = await fetch('/api/scan-barcode', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                displayScanResult(result);
+            } catch (error) {
+                console.error('Error scanning barcode:', error);
+                alert('Error scanning barcode. Please try again.');
+            }
+        });
+    }
+});
+
+// Clean up when the page is unloaded
+window.addEventListener('beforeunload', () => {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+});
+
+// Function to scan barcode from video stream
+function scanBarcode(video) {
+    console.log('Starting barcode scanner...');
+    const canvas = document.getElementById('scanner-canvas');
+    const context = canvas.getContext('2d');
+    let isScanning = true;
+    let lastScanTime = 0;
+    const SCAN_INTERVAL = 1000; // 1 second between scans
+    
+    // Show scanning indicator
+    const scanIndicator = document.createElement('div');
+    scanIndicator.id = 'scan-indicator';
+    scanIndicator.style.position = 'absolute';
+    scanIndicator.style.top = '10px';
+    scanIndicator.style.left = '10px';
+    scanIndicator.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    scanIndicator.style.color = 'white';
+    scanIndicator.style.padding = '5px 10px';
+    scanIndicator.style.borderRadius = '10px';
+    scanIndicator.style.fontSize = '12px';
+    scanIndicator.textContent = '🔍 Scanning...';
+    video.parentNode.appendChild(scanIndicator);
+    
+    function captureAndScan() {
+        if (!isScanning) return;
+        
+        const now = Date.now();
+        if (now - lastScanTime < SCAN_INTERVAL) {
+            requestAnimationFrame(captureAndScan);
+            return;
+        }
+        
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to blob and send to server
+            canvas.toBlob(async (blob) => {
+                if (!isScanning) return;
+                
+                const formData = new FormData();
+                formData.append('barcode_image', blob, 'scan.jpg');
+                
+                try {
+                    console.log('Sending barcode image to server...');
+                    const csrfToken = getCSRFToken();
+                    console.log('Using CSRF token:', csrfToken);
+                    
+                    const response = await fetch('/api/scan-barcode', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: formData
+                    });
+                    
+                    console.log('Server response status:', response.status);
+                    console.log('Content-Type:', response.headers.get('Content-Type'));
+                    
+                    // First, get the response as text to debug
+                    const responseText = await response.text();
+                    console.log('Raw response:', responseText);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    // Try to parse as JSON
+                    let result;
+                    try {
+                        result = JSON.parse(responseText);
+                        console.log('Parsed response:', result);
+                    } catch (e) {
+                        console.error('Failed to parse JSON:', e);
+                        throw new Error('Invalid JSON response from server');
+                    }
+                    if (result.success) {
+                        lastScanTime = now;
+                        displayScanResult(result);
+                        
+                        if (result.item) {
+                            // If item found, stop scanning and redirect after delay
+                            isScanning = false;
+                            setTimeout(() => {
+                                window.location.href = `/item/${result.item.id}`;
+                            }, 1500);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error scanning barcode:', error);
+                    // Continue scanning on error
+                }
+                
+                if (isScanning) {
+                    requestAnimationFrame(captureAndScan);
+                }
+            }, 'image/jpeg', 0.8);
+        } else if (isScanning) {
+            requestAnimationFrame(captureAndScan);
+        }
+    }
+    
+    // Start the scanning loop
+    captureAndScan();
+    
+    // Return a function to stop scanning
+    return () => {
+        console.log('Stopping barcode scanner...');
+        isScanning = false;
+        const indicator = document.getElementById('scan-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    };
+}
+
+// Display scan result
+function displayScanResult(result) {
+    const scanResult = document.getElementById('scan-result');
+    const barcodeValue = document.getElementById('barcode-value');
+    const itemInfo = document.getElementById('item-info');
+    
+    scanResult.style.display = 'block';
+    barcodeValue.textContent = result.barcode || 'Not detected';
+    
+    if (result.item) {
+        itemInfo.innerHTML = `
+            <div class="alert alert-success mt-3">
+                <h6>Item Found</h6>
+                <p class="mb-1"><strong>Name:</strong> ${result.item.name}</p>
+                <p class="mb-1"><strong>Price:</strong> $${parseFloat(result.item.price).toFixed(2)}</p>
+                <p class="mb-0"><strong>Stock:</strong> ${result.item.stock} available</p>
+            </div>
+            <a href="/item/${result.item.id}" class="btn btn-primary btn-sm mt-2">
+                <i class="bi bi-box-arrow-in-right"></i> View Item
+            </a>
+        `;
+    } else {
+        itemInfo.innerHTML = `
+            <div class="alert alert-warning mt-3">
+                <p class="mb-0">Item not found in the database.</p>
+            </div>
+            <a href="/admin/items/new?barcode=${result.barcode}" class="btn btn-outline-primary btn-sm mt-2">
+                <i class="bi bi-plus-circle"></i> Add New Item
+            </a>
+        `;
+    }
+}
+</script>
+{% endblock %}
