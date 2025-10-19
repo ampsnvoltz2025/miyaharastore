@@ -37,7 +37,8 @@ if __name__ == '__main__':
             admin = User(
                 email='admin@example.com',
                 first_name='Admin',
-                password=generate_password_hash('admin123', method='sha256'),
+                # password=generate_password_hash('admin123', method='sha256'),
+                password='admin123',
                 is_admin=True
             )
             db.session.add(admin)
