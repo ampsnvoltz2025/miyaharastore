@@ -45,9 +45,9 @@ def new_item():
             os.makedirs(upload_folder, exist_ok=True)
             # Save the image file with proper path formatting
             relative_path = os.path.join('uploads', filename).replace('\\', '/')
-            image.save(os.path.join('miyaharastore', 'app', 'static', relative_path))
+            image.save(os.path.join('app', 'static', relative_path))
             # Format the URL with a leading slash for web access
-            image_path = f'{os.path.join('miyaharastore', 'app', 'static', relative_path)}'
+            image_path = f'{os.path.join('app', 'static', relative_path)}'
         
         try:
             item = Item(
