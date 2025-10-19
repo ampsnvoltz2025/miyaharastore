@@ -27,7 +27,7 @@ def home():
     return render_template('views/home.html', items=items, user=current_user, settings=settings)
 
 @views.route('/freestore/')
-def item_detail(item_id):
+def fs_item_detail(item_id):
     from .models import StoreSettings
     item = Item.query.get_or_404(item_id)
     settings = StoreSettings.get_settings()
