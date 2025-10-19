@@ -26,12 +26,13 @@ def home():
     settings = StoreSettings.get_settings()
     return render_template('views/home.html', items=items, user=current_user, settings=settings)
 
+
 @views.route('/freestore/')
-def fs_item_detail(item_id):
+def fs_home():
     from .models import StoreSettings
-    item = Item.query.get_or_404(item_id)
+    items = Item.query.all()
     settings = StoreSettings.get_settings()
-    return render_template('fs/views/item_detail.html', item=item, user=current_user, settings=settings)
+    return render_template('fs/views/home.html', items=items, user=current_user, settings=settings)
 
 @views.route('/item/<int:item_id>')
 def item_detail(item_id):
