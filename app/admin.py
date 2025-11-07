@@ -69,8 +69,8 @@ def new_item():
             if image.filename != '':
                 # filename = secure_filename(image.filename)
                 filename = image.filename
-                image_path = os.path.join('static/uploads', filename)
-                image.save(os.path.join('app', image_path))
+                image_path = os.path.join('app/static/uploads', filename)
+                image.save(os.path.join('miyaharastore', image_path))
                 image_url = url_for('app/static', filename=f'uploads/{filename}')
             else:
                 image_url = None
@@ -119,8 +119,8 @@ def edit_item(item_id):
             if image.filename != '':
                 # filename = secure_filename(image.filename)
                 filename = image.filename
-                image_path = os.path.join('static/uploads', filename)
-                image.save(os.path.join('app', image_path))
+                image_path = os.path.join('app/static/uploads', filename)
+                image.save(os.path.join('miyaharastore', image_path))
                 item.image_url = url_for('app/static', filename=f'uploads/{filename}')
         
         db.session.commit()

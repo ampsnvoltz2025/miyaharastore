@@ -27,7 +27,7 @@
                         <td>
                             <div class="d-flex align-items-center">
                                 {% if item.item.image_url %}
-                                <img src="https://www.pythonanywhere.com/user/ampsnvoltz2025/files/home/ampsnvoltz2025/{{ item.item.image_url }}" alt="{{ item.item.name }}" style="width: 50px; height: 50px; object-fit: cover;" class="me-3">
+                                <img src="{{ item.item.image_url }}" alt="{{ item.item.name }}" style="width: 50px; height: 50px; object-fit: cover;" class="me-3">
                                 {% endif %}
                                 <div>
                                     <h6 class="mb-0">{{ item.item.name }}</h6>
