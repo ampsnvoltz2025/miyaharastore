@@ -47,7 +47,7 @@ def new_item():
             relative_path = os.path.join('uploads', filename).replace('\\', '/')
             image.save(os.path.join('app', 'static', relative_path))
             # Format the URL with a leading slash for web access
-            image_path = f'{os.path.join('app', 'static', relative_path)}'
+            image_path = f'{os.path.join('static', 'app', 'static', relative_path)}'
         
         try:
             item = Item(
