@@ -71,7 +71,7 @@ def new_item():
                 filename = image.filename
                 image_path = os.path.join('app/static/uploads', filename)
                 image.save(image_path)
-                image_url = url_for('static', filename=f'app/static/uploads/{filename}')
+                image_url = url_for('static', filename=f'static/app/static/uploads/{filename}')
             else:
                 image_url = None
         else:
@@ -121,7 +121,7 @@ def edit_item(item_id):
                 filename = image.filename
                 image_path = os.path.join('app/static/uploads', filename)
                 image.save(image_path)
-                item.image_url = url_for('static', filename=f'app/static/uploads/{filename}')
+                item.image_url = url_for('static', filename=f'static/app/static/uploads/{filename}')
         
         db.session.commit()
         flash(f'Item updated successfully! {os.path.join('app', image_path)}', 'success')
