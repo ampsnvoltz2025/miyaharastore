@@ -69,7 +69,7 @@ def new_item():
             if image.filename != '':
                 # filename = secure_filename(image.filename)
                 filename = image.filename
-                image_path = os.path.join('app/static/uploads', filename)
+                image_path = os.path.join('miyaharastore', 'app/static/uploads', filename)
                 image.save(image_path)
                 image_url = url_for('static', filename=f'uploads/{filename}')
             else:
@@ -119,7 +119,7 @@ def edit_item(item_id):
             if image.filename != '':
                 # filename = secure_filename(image.filename)
                 filename = image.filename
-                image_path = os.path.join('app/static/uploads', filename)
+                image_path = os.path.join('miyaharastore', 'app/static/uploads', filename)
                 image.save(image_path)
                 item.image_url = url_for('static', filename=f'uploads/{filename}')
         
