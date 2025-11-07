@@ -70,8 +70,8 @@ def new_item():
                 # filename = secure_filename(image.filename)
                 filename = image.filename
                 image_path = os.path.join('app/static/uploads', filename)
-                image.save(os.path.join('miyaharastore', image_path))
-                image_url = url_for('app/static', filename=f'uploads/{filename}')
+                image.save(image_path)
+                image_url = url_for('static', filename=f'uploads/{filename}')
             else:
                 image_url = None
         else:
@@ -120,8 +120,8 @@ def edit_item(item_id):
                 # filename = secure_filename(image.filename)
                 filename = image.filename
                 image_path = os.path.join('app/static/uploads', filename)
-                image.save(os.path.join('miyaharastore', image_path))
-                item.image_url = url_for('app/static', filename=f'uploads/{filename}')
+                image.save(image_path)
+                item.image_url = url_for('static', filename=f'uploads/{filename}')
         
         db.session.commit()
         flash(f'Item updated successfully! {os.path.join('app', image_path)}', 'success')
