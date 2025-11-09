@@ -22,7 +22,8 @@ def allowed_file(filename):
 @views.route('/')
 def home():
     from .models import StoreSettings
-    items = Item.query.all()
+    # Only show items that have stock available
+    items = Item.query.filter(Item.stock > 0).all()
     settings = StoreSettings.get_settings()
     return render_template('views/home.html', items=items, user=current_user, settings=settings)
 
@@ -30,7 +31,8 @@ def home():
 @views.route('/freestore/')
 def fs_home():
     from .models import StoreSettings
-    items = Item.query.all()
+    # Only show items that have stock available (free store view)
+    items = Item.query.filter(Item.stock > 0).all()
     settings = StoreSettings.get_settings()
     return render_template('fs/views/home.html', items=items, user=current_user, settings=settings)
 

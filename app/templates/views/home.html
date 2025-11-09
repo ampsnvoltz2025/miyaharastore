@@ -11,7 +11,9 @@
 </div>
 
 <div class="row row-cols-1 row-cols-md-3 g-4">
-    {% for item in items %}
+    {# Only render items with stock > 0. Also defensive filter in template in case view doesn't filter. #}
+    {% set visible_items = [i for i in items if i.stock > 0] %}
+    {% for item in visible_items %}
     <div class="col">
         <div class="card h-100">
             {% if item.image_url %}
