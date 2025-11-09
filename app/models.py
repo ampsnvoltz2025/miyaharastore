@@ -65,7 +65,7 @@ class OrderItem(db.Model):
 
 class StoreSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    currency = db.Column(db.String(10), default='$')
+    currency = db.Column(db.String(10), default='¥')
     currency_position = db.Column(db.String(10), default='left')  # 'left' or 'right'
     show_addresses = db.Column(db.Boolean, default=True)
     show_prices = db.Column(db.Boolean, default=True)
