@@ -172,7 +172,7 @@ def settings():
     if request.method == 'POST':
         try:
             # Validate currency symbol (1-3 characters)
-            currency = request.form.get('currency', '$').strip()
+            currency = request.form.get('currency', '¥').strip()
             if not 1 <= len(currency) <= 3:
                 flash('Currency symbol must be 1-3 characters long', 'error')
                 return redirect(url_for('admin.settings'))

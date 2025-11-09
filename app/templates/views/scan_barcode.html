@@ -407,7 +407,7 @@ function displayScanResult(result) {
             <div class="alert alert-success mt-3">
                 <h6>Item Found</h6>
                 <p class="mb-1"><strong>Name:</strong> ${result.item.name}</p>
-                <p class="mb-1"><strong>Price:</strong> $${parseFloat(result.item.price).toFixed(2)}</p>
+                <p class="mb-1"><strong>Price:</strong> ¥${parseFloat(result.item.price).toFixed(2)}</p>
                 <p class="mb-0"><strong>Stock:</strong> ${result.item.stock} available</p>
             </div>
             <a href="/item/${result.item.id}" class="btn btn-primary btn-sm mt-2">
