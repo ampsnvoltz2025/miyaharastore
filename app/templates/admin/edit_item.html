@@ -28,7 +28,7 @@
                             <label for="price" class="form-label">Price</label>
                             <div class="input-group">
                                 <span class="input-group-text">¥</span>
-                                <input type="number" class="form-control" id="price" name="price" step="0.01" min="0" value="{{ "%.2f"|format(item.price) }}" required>
+                                <input type="number" class="form-control" id="price" name="price" step="0.01" min="0" value="{{ "%.0f"|format(item.price) }}" required>
                             </div>
                         </div>
                         <div class="col-md-4 mb-3">

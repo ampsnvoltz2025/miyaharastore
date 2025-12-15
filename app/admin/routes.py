@@ -244,7 +244,7 @@ def export_customers():
             customer.email or 'No email',
             '',  # Phone number not stored in the model
             customer.order_count,
-            f"{customer.total_spent:.2f}",
+            f"{customer.total_spent:.0f}",
             customer[5].strftime('%Y-%m-%d %H:%M:%S') if customer[5] else 'N/A'
         ])
     

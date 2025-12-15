@@ -44,7 +44,7 @@ admin_items_html = """{% extends "base.html" %}
                     <strong>{{ item.name }}</strong><br>
                     <small class="text-muted">{{ item.description|truncate(50) }}</small>
                 </td>
-                <td>¥{{ "%.2f"|format(item.price) }}</td>
+                <td>¥{{ "%.0f"|format(item.price) }}</td>
                 <td>
                     <span class="badge bg-{{ 'success' if item.stock > 0 else 'danger' }}">
                         {{ item.stock }}

@@ -1,8 +1,8 @@
 {% macro format_price(amount, settings) %}
     {% if settings.currency_position == 'left' %}
-        {{ settings.currency }}{{"%.2f"|format(amount)}}
+        {{ settings.currency }}{{"%.0f"|format(amount)}}
     {% else %}
-        {{"%.2f"|format(amount)}}{{ settings.currency }}
+        {{"%.0f"|format(amount)}}{{ settings.currency }}
     {% endif %}
 {% endmacro %}
 

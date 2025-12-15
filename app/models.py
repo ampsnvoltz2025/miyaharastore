@@ -85,6 +85,6 @@ class StoreSettings(db.Model):
         if self.prices_as_free:
             return 'Free'
         if self.currency_position == 'left':
-            return f"{self.currency}{amount:,.2f}"
+            return f"{self.currency}{amount:,.0f}"
         else:
-            return f"{amount:,.2f}{self.currency}"
+            return f"{amount:,.0f}{self.currency}"
